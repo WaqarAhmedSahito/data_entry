@@ -1,21 +1,18 @@
 'use client';
-import { useState, useEffect, ChangeEvent, FormEvent } from 'react';
+import { useState, useEffect, Suspense, ChangeEvent, FormEvent } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card } from '@/types';
 
 interface FormData {
   name: string;
-  cnic: string; // Changed from number to string to match input
+  cnic: string;
   product: string;
   dateOfIssue: string;
-  price: string; // Changed from number to string to handle input
+  price: string;
 }
 
-export default function EditAddPage() {
+function EditAddForm({ id }: { id: string | null }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const id = searchParams.get('id');
-  
   const [formData, setFormData] = useState<FormData>({
     name: '',
     cnic: '',
@@ -28,71 +25,61 @@ export default function EditAddPage() {
   const [totalPayment, setTotalPayment] = useState(0);
   const [isLoading, setIsLoading] = useState(!!id);
 
-  // Calculate days passed and total payment
   useEffect(() => {
     if (!formData.dateOfIssue || !formData.price) return;
     
     const issueDate = new Date(formData.dateOfIssue);
     const today = new Date();
-    
-    // Calculate time difference in milliseconds
     const timeDiff = today.getTime() - issueDate.getTime();
-    
-    // Convert time difference to days
-    const days = Math.floor((timeDiff  / (1000 * 60 * 60 * 24)) + 1);
+    const days = Math.floor((timeDiff / (1000 * 60 * 60 * 24)) +1);
     setDaysPassed(days);
     
-    // Calculate total payment
     const priceValue = parseFloat(formData.price) || 0;
-    const total = (days) * priceValue;
+    const total = days * priceValue;
     setTotalPayment(total);
   }, [formData.dateOfIssue, formData.price]);
 
-  // Load card data if editing
- useEffect(() => {
-  if (!id) return;
-  
-  const fetchCard = async () => {
-  try {
-    const response = await fetch(`/api/cards/${id}`);
-    if (!response.ok) throw new Error('Failed to fetch card');
+  useEffect(() => {
+    if (!id) return;
     
-    const data: Card = await response.json();
-    
-    // Robust date handling with silent fallback
-    let safeDate = new Date();
-    try {
-      const parsedDate = new Date(data.dateOfIssue);
-      if (!isNaN(parsedDate.getTime())) {
-        safeDate = parsedDate;
-      }
-    } catch {} // Silently fallback to current date
-    
-    setFormData({
-      name: data.name || '',
-      cnic: data.cnic?.toString() || '',
-      product: data.product || '',
-      dateOfIssue: safeDate.toISOString().split('T')[0], // Guaranteed valid format
-      price: data.price?.toString() || '0' // Default to '0' if missing
-    });
+    const fetchCard = async () => {
+      try {
+        const response = await fetch(`/api/cards/${id}`);
+        if (!response.ok) throw new Error('Failed to fetch card');
+        
+        const data: Card = await response.json();
+        let safeDate = new Date();
+        try {
+          const parsedDate = new Date(data.dateOfIssue);
+          if (!isNaN(parsedDate.getTime())) {
+            safeDate = parsedDate;
+          }
+        } catch {}
+        
+        setFormData({
+          name: data.name || '',
+          cnic: data.cnic?.toString() || '',
+          product: data.product || '',
+          dateOfIssue: safeDate.toISOString().split('T')[0],
+          price: data.price?.toString() || '0'
+        });
 
-  } catch (error) {
-    console.error('Error loading card:', error);
-    // Initialize with default valid values
-    setFormData({
-      name: '',
-      cnic: '',
-      product: '',
-      dateOfIssue: new Date().toISOString().split('T')[0], // Today's date
-      price: '0'
-    });
-  } finally {
-    setIsLoading(false);
-  }
-};
-  
-  fetchCard();
-}, [id]);
+      } catch (error) {
+        console.error('Error loading card:', error);
+        setFormData({
+          name: '',
+          cnic: '',
+          product: '',
+          dateOfIssue: new Date().toISOString().split('T')[0],
+          price: '0'
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchCard();
+  }, [id]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -104,8 +91,8 @@ export default function EditAddPage() {
     
     const cardData = {
       ...formData,
-      cnic: formData.cnic, // Keep as string if your Card type expects string
-      price: parseFloat(formData.price), // Convert to number for API
+      cnic: formData.cnic,
+      price: parseFloat(formData.price),
       dateOfIssue: new Date(formData.dateOfIssue).toISOString(),
       daysPassed,
       totalPayment
@@ -149,7 +136,6 @@ export default function EditAddPage() {
           
           <form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              {/* Name input */}
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
                   Person Name
@@ -165,7 +151,6 @@ export default function EditAddPage() {
                 />
               </div>
               
-              {/* CNIC input */}
               <div>
                 <label htmlFor="cnic" className="block text-sm font-medium text-gray-700 mb-1">
                   CNIC Number
@@ -184,7 +169,6 @@ export default function EditAddPage() {
                 />
               </div>
               
-              {/* Product input */}
               <div>
                 <label htmlFor="product" className="block text-sm font-medium text-gray-700 mb-1">
                   Product Name
@@ -200,7 +184,6 @@ export default function EditAddPage() {
                 />
               </div>
               
-              {/* Price input */}
               <div>
                 <label htmlFor="price" className="block text-sm font-medium text-gray-700 mb-1">
                   Daily Price (PKR)
@@ -218,7 +201,6 @@ export default function EditAddPage() {
                 />
               </div>
               
-              {/* Date of Issue input */}
               <div>
                 <label htmlFor="dateOfIssue" className="block text-sm font-medium text-gray-700 mb-1">
                   Date of Issue
@@ -235,7 +217,6 @@ export default function EditAddPage() {
                 />
               </div>
               
-              {/* Calculation display */}
               <div className="bg-gray-50 p-4 rounded-md">
                 <div className="flex justify-between text-sm text-gray-700 mb-2">
                   <span>Days Passed:</span>
@@ -250,7 +231,6 @@ export default function EditAddPage() {
               </div>
             </div>
             
-            {/* Form buttons */}
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
               <button
                 type="button"
@@ -271,4 +251,19 @@ export default function EditAddPage() {
       </div>
     </div>
   );
+}
+
+export default function EditAddPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center">Loading...</div>}>
+      <EditAddPageContent />
+    </Suspense>
+  );
+}
+
+function EditAddPageContent() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get('id');
+  
+  return <EditAddForm id={id} />;
 }
