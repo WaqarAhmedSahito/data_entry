@@ -1,33 +1,45 @@
-// lib/db.ts
-import fs from 'fs/promises';
-import path from 'path';
+import { put, head } from '@vercel/blob';
 import { Card } from '@/types';
 
-const DB_PATH = path.join(process.cwd(), 'data', 'cards.json');
+const BLOB_FILENAME = 'cards.json';
 
-// Initialize database file if it doesn't exist
+// Initialize database in Blob storage
 async function initDB() {
   try {
-    await fs.access(DB_PATH);
+    await getBlobData();
   } catch {
-    await fs.mkdir(path.dirname(DB_PATH), { recursive: true });
-    await fs.writeFile(DB_PATH, JSON.stringify([]), 'utf-8');
+    await saveBlobData([]);
   }
+}
+
+// Helper function to save data to Blob
+async function saveBlobData(cards: Card[]) {
+  const { url } = await put(BLOB_FILENAME, JSON.stringify(cards), {
+    access: 'public',
+    token: process.env.BLOB_READ_WRITE_TOKEN
+  });
+  return url;
+}
+
+// Helper function to get data from Blob
+async function getBlobData(): Promise<Card[]> {
+  const { url } = await head(BLOB_FILENAME);
+  const response = await fetch(url);
+  return response.json();
 }
 
 // Read all cards
 export async function getCards(): Promise<Card[]> {
   await initDB();
-  const data = await fs.readFile(DB_PATH, 'utf-8');
-  return JSON.parse(data);
+  return getBlobData();
 }
 
 // Save all cards
 async function saveCards(cards: Card[]) {
-  await fs.writeFile(DB_PATH, JSON.stringify(cards, null, 2), 'utf-8');
+  await saveBlobData(cards);
 }
 
-// CRUD Operations
+// CRUD Operations (keep these exactly the same as before)
 export async function createCard(card: Omit<Card, 'id'>): Promise<Card> {
   const cards = await getCards();
   const newId = cards.length > 0 ? Math.max(...cards.map(c => c.id)) + 1 : 1;
